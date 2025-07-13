@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Traducir Texto</title>
+  <link rel="stylesheet" href="/static/css/templatemo-grad-school.css">
+</head>
+<body>
+  <section class="section">
+    <div class="container">
+      <h2>Traductor Automático</h2>
+      <form action="#" method="post" onsubmit="event.preventDefault(); enviarTraduccion();">
+        <textarea id="texto" placeholder="Escribe el texto a traducir..." rows="5" cols="50"></textarea><br><br>
+        <button type="submit">Traducir</button>
+      </form>
+      <div id="resultado" style="margin-top: 20px; font-weight: bold;"></div>
+    </div>
+  </section>
+
+  <script>
+    async function enviarTraduccion() {
+      const texto = document.getElementById('texto').value;
+      const respuesta = await fetch('http://127.0.0.1:8000/translate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text: texto })
+      });
+      const datos = await respuesta.json();
+      document.getElementById('resultado').innerText = "Traducción: " + datos.translation;
+    }
+  </script>
+</body>
+</html>
