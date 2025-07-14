@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Conversar con la IA</title>
+  <link rel="stylesheet" href="/static/css/templatemo-grad-school.css">
+  <style>
+    body {
+      font-family: Montserrat, sans-serif;
+      padding: 50px;
+      background-color: #f0f2f5;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    input[type="text"] {
+      width: 80%;
+      padding: 10px;
+      margin-right: 10px;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #f5a425;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    #respuesta-ia {
+      margin-top: 20px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <section class="section">
+    <div class="container">
+      <h2>Conversación con la IA</h2>
+      <form onsubmit="event.preventDefault(); enviarPregunta();">
+        <input type="text" id="mensaje" placeholder="Habla con la IA" required>
+        <button type="submit">Enviar</button>
+      </form>
+      <div id="respuesta-ia"></div>
+    </div>
+  </section>
+
+  <script>
+    async function enviarPregunta() {
+      const mensaje = document.getElementById("mensaje").value;
+      const respuestaDiv = document.getElementById("respuesta-ia");
+      respuestaDiv.innerText = "Esperando respuesta...";
+
+      try {
+        const response = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: mensaje })
+        });
+
+        const data = await response.json();
+        respuestaDiv.innerText = data.response || "No se recibió respuesta.";
+      } catch (error) {
+        respuestaDiv.innerText = "Error al contactar con la IA.";
+        console.error(error);
+      }
+    }
+  </script>
+</body>
+</html>

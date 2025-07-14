@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Traductor y Chat IA</title>
+  <link rel="stylesheet" href="/static/css/templatemo-grad-school.css">
+  <style>
+    body {
+      font-family: Montserrat, sans-serif;
+      background-color: #f0f2f5;
+      margin: 0;
+      padding: 50px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    }
+
+    textarea {
+      width: 100%;
+      padding: 10px;
+      font-size: 14px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      resize: vertical;
+    }
+
+    button {
+      background-color: #f5a425;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-weight: bold;
+      font-size: 14px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+      margin-right: 10px;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .respuesta {
+      background: #eef;
+      padding: 10px;
+      border-radius: 5px;
+      margin-top: 20px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <section class="section">
+    <div class="container">
+      <h2>Traductor Automático y Chat con IA</h2>
+      <form onsubmit="event.preventDefault();">
+        <textarea id="texto" placeholder="Escribe tu texto..." rows="5"></textarea><br>
+        <button type="button" onclick="enviarTraduccion()">Traducir</button>
+        <button type="button" onclick="enviarChat()">Conversar</button>
+      </form>
+
+      <div class="respuesta" id="resultado-traduccion"></div>
+      <div class="respuesta" id="resultado-chat"></div>
+    </div>
+  </section>
+
+  <script>
+    async function enviarTraduccion() {
+      const texto = document.getElementById('texto').value;
+
+      const respuesta = await fetch('/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: texto })
+      });
+
+      const datos = await respuesta.json();
+      document.getElementById('resultado-traduccion').innerText =
+        "Traducción:\n" + datos.translation;
+    }
+
+    async function enviarChat() {
+      const texto = document.getElementById('texto').value;
+
+      const respuesta = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: texto })
+      });
+
+      const datos = await respuesta.json();
+      document.getElementById('resultado-chat').innerText =
+        "ChatBot dice:\n" + datos.response;
+    }
+  </script>
+</body>
+</html>
