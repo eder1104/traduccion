@@ -1,4 +1,6 @@
 import os
+import re
+import json
 import urllib.parse
 import urllib.request
 from fastapi import FastAPI, Request
@@ -24,6 +26,66 @@ templates = Jinja2Templates(directory=templates_dir)
 class ChatRequest(BaseModel):
     text: str | None = None
     message: str | None = None
+
+
+def fetch_wikipedia_summary(topic: str) -> str | None:
+    try:
+        clean_topic = urllib.parse.quote(topic.strip().replace(" ", "_"))
+        url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{clean_topic}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            extract = data.get("extract")
+            if extract and len(extract) > 20:
+                return extract
+    except Exception:
+        pass
+    return None
+
+
+def generate_natural_english_chat(user_input: str) -> str:
+    t_lower = user_input.lower().strip()
+
+    # 1. Saludos y estado de ánimo cotidianos
+    if re.search(r'\b(como estas|cómo estás|como te va|cómo te va|how are you|how do you do)\b', t_lower):
+        return "I'm doing fantastic, thank you for asking! How are you doing today?"
+
+    if re.search(r'\b(bien y tu|bien y tú|excelente y tu|good and you|fine and you)\b', t_lower):
+        return "I'm doing awesome! What are your plans for today?"
+
+    if re.search(r'\b(hola|buenas|saludos|hey|hi|hello)\b', t_lower):
+        return "Hello! It's great to talk to you. What's on your mind today?"
+
+    if re.search(r'\b(quien eres|quién eres|who are you|tu nombre|what is your name)\b', t_lower):
+        return "I'm your AI conversational assistant! I'm here to chat with you and help you practice English."
+
+    if re.search(r'\b(de donde eres|de dónde eres|where are you from)\b', t_lower):
+        return "I live in the cloud! Where are you chatting from?"
+
+    if re.search(r'\b(gracias|thank you|thanks)\b', t_lower):
+        return "You're very welcome! Let me know if you want to talk about anything else."
+
+    if re.search(r'\b(chao|adios|adiós|bye|goodbye)\b', t_lower):
+        return "Goodbye! Have a wonderful day!"
+
+    # 2. Entender la consulta traduciéndola al inglés si viene en español
+    try:
+        translated_en = GoogleTranslator(source='auto', target='en').translate(user_input).strip()
+    except Exception:
+        translated_en = user_input
+
+    # 3. Consultas sobre conceptos, entidades o conocimiento ("qué es X", "quién es Y")
+    search_topic = re.sub(r'^(what is|who is|explain|tell me about|que es|quien es|explicame|cuentame de)\s+', '', translated_en, flags=re.IGNORECASE).strip()
+    if len(search_topic) > 2 and search_topic.lower() != translated_en.lower():
+        wiki_res = fetch_wikipedia_summary(search_topic)
+        if wiki_res:
+            return f"Here is what I know about {search_topic.capitalize()}:\n{wiki_res}"
+
+    # 4. Respuesta conversacional abierta sobre cualquier otra frase
+    if re.search(r'\b(like|love|enjoy|prefer)\b', translated_en.lower()):
+        return f"That sounds awesome! What do you enjoy most about it?"
+
+    return f"That's interesting! Regarding '{translated_en}', what else would you like to explore or discuss today?"
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -65,43 +127,7 @@ def translate_text(request: ChatRequest):
 def chat_with_bot(request: ChatRequest):
     user_input = (request.text or request.message or "").strip()
     if not user_input:
-        return {"response": "Please enter a message or question."}
+        return {"response": "Please enter a message to start our conversation."}
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-
-    # ── 1. Modelo de IA Autónomo Principal (OpenAI LLM en tiempo real) ──
-    try:
-        prompt = (
-            "You are a smart, autonomous AI assistant. "
-            "Always respond in natural, friendly, fluent English to whatever the user says or asks. "
-            f"User input: {user_input}\nAI Response:"
-        )
-        url = f"https://text.pollinations.ai/{urllib.parse.quote(prompt)}?model=openai"
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            answer = resp.read().decode("utf-8").strip()
-            if answer and not answer.startswith("An error") and len(answer) > 2:
-                return {"response": answer}
-    except Exception:
-        pass
-
-    # ── 2. Modelo de IA Autónomo de Respaldo (Mistral LLM) ──
-    try:
-        prompt = f"Respond in natural English to: {user_input}"
-        url = f"https://text.pollinations.ai/{urllib.parse.quote(prompt)}?model=mistral"
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            answer = resp.read().decode("utf-8").strip()
-            if answer and not answer.startswith("An error") and len(answer) > 2:
-                return {"response": answer}
-    except Exception:
-        pass
-
-    # ── 3. Fallback en caso de desconexión de red ──
-    try:
-        translated = GoogleTranslator(source='auto', target='en').translate(user_input)
-        return {"response": f"Regarding '{user_input}': {translated}"}
-    except Exception:
-        return {"response": f"Hello! How can I help you today regarding '{user_input}'?"}
+    response_text = generate_natural_english_chat(user_input)
+    return {"response": response_text}
