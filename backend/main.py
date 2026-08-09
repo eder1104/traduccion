@@ -1,5 +1,4 @@
 import os
-import re
 import urllib.parse
 import urllib.request
 from fastapi import FastAPI, Request
@@ -25,34 +24,6 @@ templates = Jinja2Templates(directory=templates_dir)
 class ChatRequest(BaseModel):
     text: str | None = None
     message: str | None = None
-
-
-def get_natural_conversational_response(text: str) -> str | None:
-    t = text.lower().strip()
-
-    # Saludos y preguntas frecuentes en español e inglés
-    if re.search(r'\b(como estas|cómo estás|como te va|cómo te va|how are you|how is it going|how do you do)\b', t):
-        return "I'm doing great, thank you for asking! How are you doing today?"
-
-    if re.search(r'\b(bien y tu|bien y tú|excelente y tu|genial y tu|good and you|fine and you)\b', t):
-        return "I'm doing awesome! What are you up to today?"
-
-    if re.search(r'\b(hola|buenas|saludos|hey|hi|hello)\b', t):
-        return "Hello! How are you doing today?"
-
-    if re.search(r'\b(quien eres|quién eres|who are you|tu nombre|what is your name)\b', t):
-        return "I'm your AI English conversation partner! I'm here to chat with you and help you practice English."
-
-    if re.search(r'\b(de donde eres|de dónde eres|where are you from)\b', t):
-        return "I live in the cloud! Where are you chatting from?"
-
-    if re.search(r'\b(gracias|thank you|thanks|thx)\b', t):
-        return "You're very welcome! Feel free to ask or talk about anything else."
-
-    if re.search(r'\b(chao|adios|adiós|bye|goodbye|nos vemos)\b', t):
-        return "Goodbye! Have a wonderful day ahead!"
-
-    return None
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -94,32 +65,43 @@ def translate_text(request: ChatRequest):
 def chat_with_bot(request: ChatRequest):
     user_input = (request.text or request.message or "").strip()
     if not user_input:
-        return {"response": "Please enter a message to start our conversation."}
+        return {"response": "Please enter a message or question."}
 
-    # 1. Comprobar si es una interacción/pregunta conversacional directa (ej. "cómo estás tú", "hola", "bien y tú")
-    natural_match = get_natural_conversational_response(user_input)
-    if natural_match:
-        return {"response": natural_match}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
 
-    # 2. Si no es un saludo básico, consultar a la IA en la nube
+    # ── 1. Modelo de IA Autónomo Principal (OpenAI LLM en tiempo real) ──
     try:
-        prompt = f"Reply in 1-2 friendly, natural English sentences to: {user_input}"
-        encoded_prompt = urllib.parse.quote(prompt)
-        url = f"https://text.pollinations.ai/{encoded_prompt}"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            ai_reply = resp.read().decode("utf-8").strip()
-            if ai_reply and not ai_reply.startswith("An error"):
-                return {"response": ai_reply}
+        prompt = (
+            "You are a smart, autonomous AI assistant. "
+            "Always respond in natural, friendly, fluent English to whatever the user says or asks. "
+            f"User input: {user_input}\nAI Response:"
+        )
+        url = f"https://text.pollinations.ai/{urllib.parse.quote(prompt)}?model=openai"
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            answer = resp.read().decode("utf-8").strip()
+            if answer and not answer.startswith("An error") and len(answer) > 2:
+                return {"response": answer}
     except Exception:
         pass
 
-    # 3. Fallback inteligente y natural en inglés si la red parpadea
+    # ── 2. Modelo de IA Autónomo de Respaldo (Mistral LLM) ──
+    try:
+        prompt = f"Respond in natural English to: {user_input}"
+        url = f"https://text.pollinations.ai/{urllib.parse.quote(prompt)}?model=mistral"
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            answer = resp.read().decode("utf-8").strip()
+            if answer and not answer.startswith("An error") and len(answer) > 2:
+                return {"response": answer}
+    except Exception:
+        pass
+
+    # ── 3. Fallback en caso de desconexión de red ──
     try:
         translated = GoogleTranslator(source='auto', target='en').translate(user_input)
-        fallback_reply = f"I see! In English you could say: '{translated}'. What else would you like to discuss?"
+        return {"response": f"Regarding '{user_input}': {translated}"}
     except Exception:
-        fallback_reply = f"That's interesting! What else would you like to talk about today?"
-
-    return {"response": fallback_reply}
+        return {"response": f"Hello! How can I help you today regarding '{user_input}'?"}
