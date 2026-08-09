@@ -25,7 +25,7 @@ class TranslationRequest(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 def serve_template(request: Request):
-    return templates.TemplateResponse("fase-traductor.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="fase-traductor.html")
 
 
 @app.post("/translate")
