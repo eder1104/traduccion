@@ -20,6 +20,9 @@ if os.path.exists(static_dir):
 
 templates = Jinja2Templates(directory=templates_dir)
 
+# Historial de conversación para mantener la memoria del chat
+conversation_history = []
+
 
 class ChatRequest(BaseModel):
     text: str | None = None
@@ -63,35 +66,46 @@ def translate_text(request: ChatRequest):
 
 @app.post("/chat")
 def chat_with_bot(request: ChatRequest):
+    global conversation_history
     user_input = (request.text or request.message or "").strip()
     if not user_input:
-        return {"response": "Por favor ingresa un mensaje para conversar."}
+        return {"response": "Please enter a message to start our conversation."}
 
-    # Intentar obtener respuesta conversacional inteligente con la API de IA en la nube
+    # Agregar el mensaje del usuario al historial de conversación
+    conversation_history.append(f"User: {user_input}")
+    
+    # Mantener los últimos 8 turnos de conversación para memoria contextual
+    recent_history = "\n".join(conversation_history[-8:])
+
+    # Prompt del sistema para garantizar respuesta autónoma en inglés
+    full_prompt = (
+        "System Instruction: You are an autonomous, friendly English conversation partner and AI tutor. "
+        "Always respond in natural, engaging, fluent English. "
+        "React autonomously to what the user says, answer their questions, share ideas, and ask an open-ended follow-up question to keep the conversation going. "
+        "If the user speaks in Spanish or another language, respond in English and encourage them to keep practicing English.\n\n"
+        f"Conversation History:\n{recent_history}\n\nAI Response in English:"
+    )
+
     try:
-        system_prompt = f"Responde de manera amigable, conversacional y fluida en el mismo idioma que habla el usuario: {user_input}"
-        encoded_prompt = urllib.parse.quote(system_prompt)
+        encoded_prompt = urllib.parse.quote(full_prompt)
         url = f"https://text.pollinations.ai/{encoded_prompt}"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=6) as resp:
+        
+        with urllib.request.urlopen(req, timeout=8) as resp:
             ai_reply = resp.read().decode("utf-8").strip()
             if ai_reply:
+                # Guardar respuesta de la IA en la memoria de la conversación
+                conversation_history.append(f"AI: {ai_reply}")
                 return {"response": ai_reply}
     except Exception:
         pass
 
-    # Fallback conversacional si la API estuviera inaccesible
+    # Fallback conversacional en inglés si la red parpadea
     try:
-        source_lang = detect(user_input)
+        translated = GoogleTranslator(source='auto', target='en').translate(user_input)
+        fallback_reply = f"That's interesting! Regarding '{translated}', tell me more about your thoughts on this!"
     except Exception:
-        source_lang = "es"
+        fallback_reply = f"I hear you! You said: '{user_input}'. What else would you like to chat about today?"
 
-    target_lang = "en" if source_lang == "es" else "es"
-
-    try:
-        translated = GoogleTranslator(source='auto', target=target_lang).translate(user_input)
-        bot_reply = f"🤖 ¡Hola! Entendí tu mensaje ('{user_input}'). En inglés/español sería: '{translated}'"
-    except Exception:
-        bot_reply = f"🤖 ¡Hola! Recibí tu mensaje: '{user_input}'. ¿De qué te gustaría hablar?"
-
-    return {"response": bot_reply}
+    conversation_history.append(f"AI: {fallback_reply}")
+    return {"response": fallback_reply}
